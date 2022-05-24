@@ -1,18 +1,31 @@
 FROM continuumio/miniconda3:latest
 
-RUN apt-get update && apt-get upgrade -y \
-    && apt-get install -y \
-        libpq-dev \
+RUN apt-get update && apt-get install -y \
         build-essential \
+        cmake \
+        ffmpeg \
         git \
+        libboost-all-dev \
+        libjpeg-dev \
+        libpq-dev \
+        libsdl2-dev swig \
         sudo \
-        cmake zlib1g-dev libjpeg-dev xvfb ffmpeg xorg-dev libboost-all-dev libsdl2-dev swig \
-        unzip zip \
+        unzip \
+        xorg-dev \
+        xvfb \
+        zip \
+        zlib1g-dev \
+    && apt clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN conda update -n base conda
-COPY docker/environment.yml /tmp/
-RUN conda env create -f /tmp/environment.yml
+COPY environment.yml /tmp/
+RUN printf "\n    - pyvirtualdisplay" >> /tmp/environment.yml \
+    && conda env create -f /tmp/environment.yml \
+    && conda clean -afy \
+    && find /opt/conda/ -follow -type f -name '*.a' -delete \
+    && find /opt/conda/ -follow -type f -name '*.pyc' -delete \
+    && find /opt/conda/ -follow -type f -name '*.js.map' -delete \
+    && rm /tmp/environment.yml
 
 ARG username
 ARG userid
@@ -29,6 +42,8 @@ RUN chown ${username}:${username} ${workdir}
 
 USER ${username}
 WORKDIR ${workdir}
+
+ENV PATH /opt/conda/envs/tf2/bin:$PATH
 
 # The config below enables diffing notebooks with nbdiff (and nbdiff support
 # in git diff command) after connecting to the container by "make exec" (or
@@ -47,9 +62,9 @@ RUN git config --global diff.jupyternotebook.command 'git-nbdiffdriver diff --ig
 
 
 COPY docker/bashrc.bash /tmp/
-RUN cat /tmp/bashrc.bash >> ${home}/.bashrc
-RUN echo "export PATH=\"${workdir}/docker/bin:$PATH\"" >> ${home}/.bashrc
-RUN sudo rm /tmp/bashrc.bash
+RUN cat /tmp/bashrc.bash >> ${home}/.bashrc \
+    && echo "export PATH=\"${workdir}/docker/bin:$PATH\"" >> ${home}/.bashrc \
+    && sudo rm /tmp/bashrc.bash
 
 
 # INFO: Uncomment lines below to enable automatic save of python-only and html-only
